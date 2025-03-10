@@ -1,4 +1,6 @@
 const jwt = require('jsonwebtoken');
+const dotenv = require('dotenv');
+dotenv.config();
 
 exports.verifyToken = (req, res, next) => {
     const Authorization = req.header('Authorization');
@@ -6,7 +8,13 @@ exports.verifyToken = (req, res, next) => {
         messenger: "Bạn chưa đăng nhập"
     })
     const token = Authorization.replace('Bearer ', '');
-    const { userID } = jwt.verify(token, process.env.APP_SECERT);
-    req.user = { userID };
-    next();
+    try {
+        const { userID } = jwt.verify(token, process.env.APP_SECERT || '123456');
+        req.user = { userID };
+        next();
+    } catch (err) {
+        return res.status(401).json({
+            messenger: "Token không hợp lệ"
+        });
+    }
 }

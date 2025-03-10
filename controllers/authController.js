@@ -19,7 +19,7 @@ exports.register = async (req, res, next) => {
         newUser.password = await bcrypt.hash(newUser.password, salt);
 
         const savedUser = await newUser.save();
-        const token = jwt.sign({ userID: savedUser._id }, process.env.APP_SECERT);
+        const token = jwt.sign({ userID: savedUser._id }, process.env.APP_SECRET);
         res.json({
             status: "success",
             user: savedUser,
@@ -45,7 +45,7 @@ exports.login = async (req, res, next) => {
             });
             return;
         }
-        const isMatch = await bcrypt.compare(req.body.password, user.password);
+        const isMatch = await bcrypt.compare(bcrypt.hash(req.body.password), user.password);
         if (!isMatch) {
             return res.json({
                 status: "failed",
