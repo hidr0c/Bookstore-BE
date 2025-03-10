@@ -260,13 +260,13 @@ exports.changeCategoryProduct = async (req, res, next) => {
     const product = await Product.findById(data.id)
     if (data.status) {
       product.category.push(data.category)
-      product.save()
+      await product.save()
     } else {
       let index = _.findIndex(product.category, (e) => e === data.category, 0)
       if (index !== -1) {
         product.category.splice(index, 1)
       }
-      product.save()
+      await product.save()
     }
     res.json({
       status: 'success',

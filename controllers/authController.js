@@ -1,6 +1,9 @@
 const User = require('../models/user');
 const jwt = require('jsonwebtoken');
-const bycript = require('bcryptjs');
+const bcrypt = require('bcryptjs');
+const dotenv = require('dotenv');
+dotenv.config();
+
 exports.register = async (req, res, next) => {
     try {
         const email = await User.find({ email: req.body.email });
@@ -11,40 +14,25 @@ exports.register = async (req, res, next) => {
             });
             res.end();
         }
-        const newUser = await User.create({ ...req.body });
-        if (!newUser) {
-            res.json({
-                status: "failed",
-                messenger: "Đăng ký tài khoản thất bại"
-            })
-            res.end();
-        } else {
-            bycript.hash(newUser.password, 10, function (err, hash) {
-                if (err) {
-                    res.json({
-                        status: "failed",
-                        messenger: "Đăng ký tài khoản thất bại!"
-                    })
-                    return;
-                }
-                newUser.password = hash;
-                newUser.save(function (err, result) {
-                    const token = jwt.sign({ userID: result._id }, process.env.APP_SECERT);
-                    res.json({
-                        status: "success",
-                        user: result,
-                        token
-                    })
-                });
-            })
-        }
+        const newUser = new User({ ...req.body });
+        const salt = await bcrypt.genSalt(10);
+        newUser.password = await bcrypt.hash(newUser.password, salt);
 
-    }
-    catch (err) {
-        console.log("Err", err)
+        const savedUser = await newUser.save();
+        const token = jwt.sign({ userID: savedUser._id }, process.env.APP_SECERT);
+        res.json({
+            status: "success",
+            user: savedUser,
+            token
+        });
+    } catch (err) {
+        console.log("Err", err);
+        res.status(500).json({
+            status: "failed",
+            messenger: "Đăng ký tài khoản thất bại"
+        });
     }
 }
-
 
 exports.login = async (req, res, next) => {
     try {
@@ -53,11 +41,17 @@ exports.login = async (req, res, next) => {
         if (!user) {
             res.json({
                 status: 'failed',
-                messenger: 'Email không hợp lệ'
-            })
+                messenger: 'Email không hợp lệ' 
+            });
             return;
         }
-        if (bycript.compareSync(req.body.password, user.password)) {
+        const isMatch = await bcrypt.compare(req.body.password, user.password);
+        if (!isMatch) {
+            return res.json({
+                status: "failed",
+                messenger: "Sai email hoặc mật khẩu"
+            });
+        }
             const token = jwt.sign({ userID: user.id }, process.env.APP_SECERT);
             const subTotal = user.cart.reduce((total, cart) => {
                 let price = cart.product.sale > 0 ? cart.product.price - (cart.product.sale / 100 * cart.product.price) : cart.product.price;
@@ -79,13 +73,6 @@ exports.login = async (req, res, next) => {
                 },
                 subTotal
             })
-        }
-        else {
-            res.json({
-                status: "failed",
-                messenger: "Sai email hoặc mật khẩu"
-            })
-        }
     }
     catch (err) {
         console.log("Err", err)
@@ -124,35 +111,42 @@ exports.loginAdmin = async (req, res, next) => {
             })
             return;
         }
-        if (bycript.compareSync(password, user.password)) {
-            console.log(user)
-            if (user.role === 'admin') {
-                const token = jwt.sign({ userID: user.id }, process.env.APP_SECERT);
-                res.status(200).json({
-                    status: "success",
-                    token: token,
-                    user: {
-                        id: user._id,
-                        cart: user.cart,
-                        email: user.email,
-                        firstName: user.firstName,
-                        lastName: user.lastName,
-                        role: user.role,
-                        phone: user.phone,
-                        address: user.address,
-                        image: user.image
-                    }
-                })
-            }
-        }
-        else {
-            res.json({
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) {
+            return res.json({
                 status: "failed",
                 messenger: "Sai tài khoản hoặc mật khẩu"
-            })
+            });
         }
-    }
-    catch (err) {
-        console.log("Err", err)
+
+        if (user.role === 'admin') {
+            const token = jwt.sign({ userID: user.id }, process.env.APP_SECERT);
+            res.status(200).json({
+                status: "success",
+                token: token,
+                user: {
+                    id: user._id,
+                    cart: user.cart,
+                    email: user.email,
+                    firstName: user.firstName,
+                    lastName: user.lastName,
+                    role: user.role,
+                    phone: user.phone,
+                    address: user.address,
+                    image: user.image
+                }
+            });
+        } else {
+            res.json({
+                status: "failed",
+                messenger: "Bạn không có quyền truy cập"
+            });
+        }
+    } catch (err) {
+        console.log("Err", err);
+        res.status(500).json({
+            status: "failed",
+            messenger: "Đăng nhập thất bại"
+        });
     }
 }
