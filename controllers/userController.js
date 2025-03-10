@@ -178,25 +178,23 @@ exports.updateAllCart = async (req, res) => {
             .populate("cart.product");
         if (user) {
             user.cart = newCart;
-            user.save(function (err, result) {
-                if (!err) {
-                    const subTotal = result.cart.reduce((total, cart) => {
-                        let price = cart.product.sale > 0 ? cart.product.price - (cart.product.sale / 100 * cart.product.price) : cart.product.price;
-                        return total + price * cart.quantity;
-                    }, 0);
-                    res.json({
-                        status: "success",
-                        result,
-                        subTotal
-                    })
-                } else {
-                    console.log(err);
-                }
-            })
+            const result = await user.save();
+            const subTotal = result.cart.reduce((total, cart) => {
+                let price = cart.product.sale > 0 ? cart.product.price - (cart.product.sale / 100 * cart.product.price) : cart.product.price;
+                return total + price * cart.quantity;
+            }, 0);
+            res.json({
+                status: "success",
+                result,
+                subTotal
+            });
         }
     }
     catch (err) {
-
+        res.json({
+        status: "failed",
+        err
+    });
     }
 }
 
@@ -209,26 +207,27 @@ exports.deleteProductToCart = async (req, res, next) => {
         let index = await lodash._.findIndex(user.cart, (cart) => cart.product._id == productID);
         if (index !== -1) {
             user.cart.splice(index, 1);
-            user.save(function (err, result) {
-                if (!err) {
-                    const subTotal = result.cart.reduce((total, cart) => {
-                        let price = cart.product.sale > 0 ? cart.product.price - (cart.product.sale / 100 * cart.product.price) : cart.product.price;
-                        return total + price * cart.quantity;
-                    }, 0);
-                    res.json({
-                        status: "success",
-                        subTotal
-                    })
-                }
+            const result = await user.save();
+            const subTotal = result.cart.reduce((total, cart) => {
+                let price = cart.product.sale > 0 ? cart.product.price - (cart.product.sale / 100 * cart.product.price) : cart.product.price;
+                return total + price * cart.quantity;
+            }, 0);
+            res.json({
+                status: "success",
+                subTotal
             });
         } else {
-            console.log("ERR")
+            res.json({
+                status: "failed",
+                messenger: "Product not found in cart"
+            });
         }
-    }
-    catch (err) {
-
-    }
-}
+    } catch (err) {
+        res.json({
+            status: "failed",
+            err
+        });
+    }}
 
 exports.searchUserByEmail = async (req, res, next) => {
     try {
