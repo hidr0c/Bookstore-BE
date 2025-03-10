@@ -19,10 +19,12 @@ const revenueRoutes = require('./routers/revenueRoutes');
 // Cors
 var corsOptions = {
   origin: [
-    'https://bookstore-client-user.vercel.app',
-    'https://bookstore-client-dashboard.vercel.app',
     'http://localhost:3000',
+    'http://localhost:3001',
+    'http://localhost:3002',
+    'http://localhost:3003',
     'http://localhost:3006',
+    'http://localhost:5000',
   ],
   optionsSuccessStatus: 200 // For legacy browser support
 }
@@ -45,9 +47,7 @@ app.use('/api/revenue', revenueRoutes);
 app.use('*', function (req, res, next) {
   console.log('not found')
 })
-
-const port = process.env.PORT || 5000
-
+port = process.env.APP_PORT || 5000
 app.listen(port, () => {
   console.log(`server running is port ${port}`)
 })

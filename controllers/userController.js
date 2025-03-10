@@ -18,12 +18,9 @@ exports.editProfile = async (req, res, next) => {
             data.image = url.url;
         }
         if (data.password) {
-            bycript.hash(data.password, 10, function (err, hash) {
-                if (!err) {
-                    user.password = hash;
-                    user.save();
-                }
-            })
+            const salt = await bcrypt.genSalt(10);
+            user.password = await bcrypt.hash(data.password, salt);
+            await user.save();
             delete data.password;
         }
         const userUpdate = await User.findByIdAndUpdate(userID, { ...data }, { runValidators: true, new: true })
@@ -130,26 +127,19 @@ exports.addOneProductToCart = async (req, res, next) => {
         if (index === -1) {
             delete data.price;
             user.cart.push(data);
-            user.save(function (err, result) {
-                if (err) {
-                    res.json({
-                        status: "failed"
-                    })
-                    return;
+            const result = await user.save();
+            const subTotal = result.cart.reduce((total, cart, index) => {
+                if (index < result.cart.length - 1) {
+                    let price = cart.product.sale > 0 ? cart.product.price - (cart.product.sale / 100 * cart.product.price) : cart.product.price;
+                    return total + price * cart.quantity;
                 }
-                const subTotal = result.cart.reduce((total, cart, index) => {
-                    if (index < result.cart.length - 1) {
-                        let price = cart.product.sale > 0 ? cart.product.price - (cart.product.sale / 100 * cart.product.price) : cart.product.price;
-                        return total + price * cart.quantity;
-                    }
-                    return total + reqPrice * cart.quantity;
-                }, 0);
-                const idCart = result.cart[result.cart.length - 1]._id;
-                res.json({
-                    status: "success",
-                    subTotal,
-                    idCart
-                })
+                return total + reqPrice * cart.quantity;
+            }, 0);
+            const idCart = result.cart[result.cart.length - 1]._id;
+            res.json({
+                status: "success",
+                subTotal,
+                idCart
             });
         }
     }
